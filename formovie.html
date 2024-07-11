@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Cast Display</title>
+    <style>
+        .poster {
+            height: 300px;
+            width: 200px;
+            margin: 10px;
+        }
+
+        #movie-info {
+            display: flex;
+            align-items: flex-start;
+            font-size: 25px;
+        }
+
+        #movie-details {
+            margin-left: 20px;
+        }
+
+        img,
+        p {
+            display: flex;
+        }
+
+        #cast-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .cast-member {
+            text-align: center;
+        }
+
+        .cast-member img {
+            width: 150px;
+            height: 225px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .cast-member p {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="movie-info">
+        <img src="" class="poster" id="movie-poster">
+        <div id="movie-details">
+            <h1 id="movie-name">Movie name</h1>
+            <p><strong>Overview: </strong><span id="movie-overview">dededed</span></p>
+        </div>
+    </div>
+
+    <div id="cast-info"></div>
+
+    <script>
+        const API_KEY = '8a8909f46446bb5be78f26bae353bb13';
+
+        async function fetch_poster(movie_name) {
+            try {
+                const api_key = API_KEY;
+                const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${api_key}&query=${movie_name}`);
+                const data = await response.json();
+                const poster_path = data.results[0].poster_path;
+                const posterUrl = `https://image.tmdb.org/t/p/w500${poster_path}`;
+                document.getElementById('movie-poster').src = posterUrl;
+            } catch (error) {
+                console.error('Error fetching poster:', error);
+            }
+        }
+
+        function getQueryParams() {
+            let params = {};
+            window.location.search.substring(1).split("&").forEach(function(pair) {
+                let [key, value] = pair.split("=");
+                params[decodeURIComponent(key)] = decodeURIComponent(value);
+            });
+            return params;
+        }
+
+        let params = getQueryParams();
+        let movie_name = params.movie_name.replace(/\+/g, ' ');
+
+        async function getOverview(movieName) {
+            try {
+                const baseUrl = "https://api.themoviedb.org/3/search/movie?";
+                const apiUrl = `${baseUrl}api_key=${API_KEY}&query=${movieName}`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                return data.results[0];
+            } catch (error) {
+                console.error('Error fetching movie overview:', error);
+                return null;
+            }
+        }
+
+        async function fetchMovieDetails(movieId) {
+            try {
+                const url = `https://api.themoviedb.org/3/movie/${movieId}?api_key=${API_KEY}&append_to_response=credits`;
+                const response = await fetch(url);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching movie details:', error);
+                return null;
+            }
+        }
+
+        async function fetchActorImage(actorId) {
+            try {
+                const url = `https://api.themoviedb.org/3/person/${actorId}/images?api_key=${API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.profiles.length > 0) {
+                    return `https://image.tmdb.org/t/p/original${data.profiles[0].file_path}`;
+                } else {
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching actor image:', error);
+                return null;
+            }
+        }
+
+        async function displayMovieCast(movieName) {
+            try {
+                const movieOverview = await getOverview(movieName);
+                if (!movieOverview) {
+                    console.log('Movie overview not found.');
+                    return;
+                }
+
+                // Display movie name and overview
+                document.getElementById('movie-name').textContent = movieOverview.title;
+                document.getElementById('movie-overview').textContent = movieOverview.overview;
+
+                const movieDetails = await fetchMovieDetails(movieOverview.id);
+                if (!movieDetails) {
+                    console.log('Movie details not found.');
+                    return;
+                }
+
+                const cast = movieDetails.credits.cast.slice(0, 5);
+                const castInfoDiv = document.getElementById('cast-info');
+                castInfoDiv.innerHTML = '';
+
+                for (const castMember of cast) {
+                    const actorImage = await fetchActorImage(castMember.id);
+
+                    if (actorImage) {
+                        const castMemberInfo = document.createElement('div');
+                        castMemberInfo.classList.add('cast-member');
+
+                        const actorImageElem = document.createElement('img');
+                        actorImageElem.src = actorImage;
+                        actorImageElem.alt = `${castMember.name} profile image`;
+                        castMemberInfo.appendChild(actorImageElem);
+
+                        const actorNameElem = document.createElement('p');
+                        actorNameElem.textContent = `${castMember.name} as ${castMember.character}`;
+                        castMemberInfo.appendChild(actorNameElem);
+
+                        castInfoDiv.appendChild(castMemberInfo);
+                    }
+                }
+            } catch (error) {
+                console.error('Error displaying movie cast:', error);
+            }
+        }
+
+        fetch_poster(movie_name);
+        displayMovieCast(movie_name);
+
+    </script>
+
+</body>
+
+</html>
